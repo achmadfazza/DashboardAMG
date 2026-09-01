@@ -22,6 +22,14 @@ export default function SignInForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email.trim()) {
+      setErrorMessage("Email belum diisi");
+      return;
+    }
+    if (!password.trim()) {
+      setErrorMessage("Password belum diisi");
+      return;
+    }
     setLoading(true);
     setErrorMessage("");
     setSuccessMessage("");
@@ -45,13 +53,15 @@ export default function SignInForm() {
       // Simpan token ke localStorage
       localStorage.setItem("token", data.token);
 
+      localStorage.setItem("user", JSON.stringify(data.user));
+
       // 1. Tampilkan pesan sukses login
       setSuccessMessage("Login berhasil!");
 
       // 2. Berikan jeda (misal: 1500 milidetik / 1.5 detik) sebelum pindah halaman
       setTimeout(() => {
         navigate("/");
-      }, 2000);
+      }, 1500);
 
     } catch (err: any) {
       // Tangani khusus untuk error jaringan / server mati

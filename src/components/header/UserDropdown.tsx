@@ -13,10 +13,8 @@ type User = {
 export default function UserDropdown() {
   const [isOpen, setIsOpen] = useState(false);
 
-  // 1. Buat state untuk menyimpan data user
   const [user, setUser] = useState<User | null>(null);
 
-  // 2. Ambil data user dari localStorage saat komponen dimuat
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
     if (storedUser) {
@@ -35,30 +33,23 @@ export default function UserDropdown() {
   const navigate = useNavigate();
 
   const handleSignOut = async (e: React.ChangeEvent<any>) => {
-    // Mencegah link default behavior jika menggunakan tag <Link>
     e.preventDefault();
     try {
-      // 1. Get the token before deleting it
       const token = localStorage.getItem("token");
       
-      // 2. Call the backend API to destroy the token/session
       if (token) {
-        // Replace with your actual backend URL or env variable
        const API_URL = import.meta.env.VITE_API_BASE_URL;
        await fetch(`${API_URL}/api/auth/signout`, {
           method: "POST",
           headers: {
-            "Authorization": `Bearer ${token}`, // Tell the backend which user is logging out
+            "Authorization": `Bearer ${token}`, 
             "Content-Type": "application/json"
           }
         });
       }
     } catch (error) {
-      // We just log the error. Even if the server is down, 
-      // we still want to force the user to log out on the frontend.
       console.error("Failed to sign out from server:", error);
     } finally {
-      // 3. ALWAYS destroy the token in local storage, even if the API fails
       localStorage.removeItem("token");
       localStorage.removeItem("user");
 

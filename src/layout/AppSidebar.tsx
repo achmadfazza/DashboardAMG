@@ -160,6 +160,7 @@ const AppSidebar: React.FC = () => {
     });
   };
 
+  // render menu item 
   const renderMenuItems = (items: NavItem[], menuType: "main" | "others") => (
     <ul className="flex flex-col gap-4">
       {items.map((nav, index) => (
@@ -283,6 +284,7 @@ const AppSidebar: React.FC = () => {
     </ul>
   );
 
+  //return html view aside tag sidebar
   return (
     <aside
       className={`fixed mt-16 flex flex-col lg:mt-0 top-0 px-5 left-0 bg-white dark:bg-gray-900 dark:border-gray-800 text-gray-900 h-screen transition-all duration-300 ease-in-out z-50 border-r border-gray-200 
@@ -331,6 +333,8 @@ const AppSidebar: React.FC = () => {
           )}
         </Link>
       </div>
+
+      {/* main div to show */}
       <div className="flex flex-col overflow-y-auto duration-300 ease-linear no-scrollbar">
         <nav className="mb-6">
           <div className="flex flex-col gap-4">
@@ -368,7 +372,7 @@ const AppSidebar: React.FC = () => {
             </div>
           </div>
         </nav>
-        {isExpanded || isHovered || isMobileOpen ? <SidebarWidget /> : null}
+        {isExpanded || isHovered || isMobileOpen }
       </div>
     </aside>
   );

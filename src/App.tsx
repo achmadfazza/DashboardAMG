@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router";
 import ProtectedRoute from "./components/helper/ProtectedRoute";
 import SignIn from "./pages/AuthPages/SignIn";
@@ -20,6 +21,10 @@ import AppLayout from "./layout/AppLayout";
 import { ScrollToTop } from "./components/common/ScrollToTop";
 import Home from "./pages/Dashboard/Home";
 
+// Lazy: SolarDashboard pulls in recharts, so it gets its own chunk
+// instead of bloating the initial bundle.
+const SolarDashboard = lazy(() => import("./pages/Dashboard/SolarDashboard"));
+
 export default function App() {
   return (
     <>
@@ -30,6 +35,20 @@ export default function App() {
           <Route element={<ProtectedRoute />}>
               <Route element={<AppLayout />}>
                 <Route index path="/" element={<Home />} />
+                <Route
+                  path="/solar-dashboard"
+                  element={
+                    <Suspense
+                      fallback={
+                        <div className="flex items-center justify-center p-12 text-sm text-gray-500 dark:text-gray-400">
+                          Loading dashboard...
+                        </div>
+                      }
+                    >
+                      <SolarDashboard />
+                    </Suspense>
+                  }
+                />
 
                 {/* Others Page */}
                 <Route path="/profile" element={<UserProfiles />} />

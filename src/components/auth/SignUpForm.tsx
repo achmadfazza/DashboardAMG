@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { ChevronLeftIcon, EyeCloseIcon, EyeIcon } from "../../icons";
+import { EyeCloseIcon, EyeIcon } from "../../icons";
 import Label from "../form/Label";
 import Input from "../form/input/InputField";
 import Checkbox from "../form/input/Checkbox";
@@ -62,8 +62,10 @@ export default function SignUpForm() {
         navigate("/signin");
       }, 2000);
 
-    } catch (err: any) {
-      setErrorMessage(err.message);
+    } catch (err: unknown) {
+      setErrorMessage(
+        err instanceof Error ? err.message : "Terjadi kesalahan yang tidak diketahui",
+      );
     } finally {
       setLoading(false);
     }
@@ -112,7 +114,7 @@ export default function SignUpForm() {
                       name="fname"
                       placeholder="Enter your first name"
                       value={firstName}
-                      onChange={(e: any) => setFirstName(e.target.value)}
+                      onChange={(e) => setFirstName(e.target.value)}
                     />
                   </div>
                   <div className="sm:col-span-1">
@@ -125,7 +127,7 @@ export default function SignUpForm() {
                       name="lname"
                       placeholder="Enter your last name"
                       value={lastName}
-                      onChange={(e: any) => setLastName(e.target.value)}
+                      onChange={(e) => setLastName(e.target.value)}
                     />
                   </div>
                 </div>
@@ -140,7 +142,7 @@ export default function SignUpForm() {
                     name="email"
                     placeholder="Enter your email"
                     value={email}
-                    onChange={(e: any) => setEmail(e.target.value)}
+                    onChange={(e) => setEmail(e.target.value)}
                     required
                   />
                 </div>
@@ -154,7 +156,7 @@ export default function SignUpForm() {
                       placeholder="Enter your password"
                       type={showPassword ? "text" : "password"}
                       value={password}
-                      onChange={(e: any) => setPassword(e.target.value)}
+                      onChange={(e) => setPassword(e.target.value)}
                       required
                     />
                     <span

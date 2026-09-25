@@ -177,6 +177,20 @@
       stroke-dashoffset: -24;
     }
   }
+
+  --animate-blip: blip 0.6s ease-out;
+
+  @keyframes blip {
+    0% {
+      transform: scale(1);
+    }
+    35% {
+      transform: scale(1.18);
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
 }
 
 /*

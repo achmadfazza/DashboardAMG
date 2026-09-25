@@ -13,6 +13,7 @@ Vite + React 19 + TypeScript + Tailwind CSS v4 admin dashboard (TailAdmin fork f
 ## Env / Backend
 
 - Requires `VITE_API_BASE_URL` in `.env` (currently `http://localhost:5000`). Backend is a separate service; auth calls fail with `Failed to fetch` if it is down.
+- `VITE_NODE_RED_WS_URL` (e.g. `ws://172.17.173.164:1880/ws/totalgridpwr`) feeds live data via `useNodeRedWs` (`src/hooks/useNodeRedWs.ts`, generic `useNodeRedWs<T>`, auto-reconnects every 3s). The hook skips connecting when the URL is empty. Restart `npm run dev` after changing `.env` — Vite only reads it at startup.
 - Auth is token-in-`localStorage`: `SignInForm` POSTs to `${VITE_API_BASE_URL}/api/auth/signin`, stores `token` + `user`; `ProtectedRoute` (`src/components/helper/ProtectedRoute.tsx`) gates all `/` routes on `localStorage.getItem("token")` and redirects to `/signin`. Sign-out (`UserDropdown.tsx`) POSTs to `/api/auth/signout` then clears storage.
 - Access raw env only via `import.meta.env.VITE_API_BASE_URL`; never hardcode URLs.
 

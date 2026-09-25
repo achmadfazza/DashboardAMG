@@ -21,4 +21,5 @@ export interface FlowNodeProps {
    shadowClass?: string;
    top: string | number;
    left: string | number;
+   pulse?: boolean;
 }

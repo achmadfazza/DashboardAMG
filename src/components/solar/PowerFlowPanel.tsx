@@ -4,9 +4,12 @@ import FlowNode from './FlowNode';
 import { useNodeRedWs } from '../../hooks/useNodeRedWs';
 import type { FlowNodeProps } from '../../types/solar';
 
-const WS_URL: string = import.meta.env.VITE_NODE_RED_WS_URL ?? '';
+const GRID_WS_URL: string = `${import.meta.env.VITE_NODE_RED_WS_BASE_URL ?? ''}${import.meta.env.VITE_NODE_RED_ON_GRID_PATH ?? ''}`;
+const SOLAR_WS_URL: string = `${import.meta.env.VITE_NODE_RED_WS_BASE_URL ?? ''}${import.meta.env.VITE_NODE_RED_ON_SOLAR_PATH ?? ''}`;
 
 const FALLBACK_GRID_VALUE = '--.-- kW';
+const FALLBACK_SOLAR_VALUE = '--.-- kW';
+const FALLBACK_LOAD_VALUE = '--.-- kW';
 
 // Node-RED may send a bare number, a numeric string, or an object like
 // { value: 1903.86 }. Extract kW from any of those shapes.
@@ -26,6 +29,15 @@ const extractPowerKw = (payload: unknown): number | null => {
         return extracted;
       }
     }
+  }
+  return null;
+};
+
+// Solar payload is JSON with a tot_pwr_plts field.
+const extractSolarKw = (payload: unknown): number | null => {
+  if (payload !== null && typeof payload === 'object') {
+    const record = payload as Record<string, unknown>;
+    return extractPowerKw(record['tot_pwr_plts']);
   }
   return null;
 };
@@ -61,28 +73,59 @@ const NODES: FlowNodeProps[] = [
 ];
 
 // Panel is memoized against parent re-renders, but still re-renders on its
-// own hook state (live Grid value) — which is exactly what we want.
+// own hook state (live Grid and Solar values) — which is exactly what we want.
 const PowerFlowPanel = memo(function PowerFlowPanel() {
-  const { data: gridPayload, error: wsError, isConnected } = useNodeRedWs(WS_URL);
+  const { data: gridPayload, error: gridError, isConnected: gridConnected } = useNodeRedWs(GRID_WS_URL);
+  const { data: solarPayload, error: solarError, isConnected: solarConnected } = useNodeRedWs(SOLAR_WS_URL);
   const gridKw = extractPowerKw(gridPayload);
+  const solarKw = extractSolarKw(solarPayload);
+  const loadKw = gridKw !== null && solarKw !== null ? gridKw + solarKw : null;
   const gridValue = gridKw !== null ? `${gridKw.toFixed(2)} kW` : FALLBACK_GRID_VALUE;
+  const solarValue = solarKw !== null ? `${solarKw.toFixed(2)} kW` : FALLBACK_SOLAR_VALUE;
+  const loadValue = loadKw !== null ? `${loadKw.toFixed(2)} kW` : FALLBACK_LOAD_VALUE;
 
   // Blip the Grid badge every time a new reading arrives: toggling the
   // class retriggers the CSS animation (cleared after it finishes).
-  const [blip, setBlip] = useState(false);
+  const [gridBlip, setGridBlip] = useState(false);
   const prevGridKw = useRef<number | null>(null);
   useEffect(() => {
     if (gridKw === null || gridKw === prevGridKw.current) {
       return;
     }
     prevGridKw.current = gridKw;
-    setBlip(true);
-    const t = setTimeout(() => setBlip(false), 650);
+    setGridBlip(true);
+    const t = setTimeout(() => setGridBlip(false), 650);
     return () => clearTimeout(t);
   }, [gridKw]);
 
-  const connectionLabel = isConnected ? 'WebSocket connected' : 'WebSocket disconnected';
-  const connectionDescription = wsError?.message ?? connectionLabel;
+  // Blip the Solar badge every time a new reading arrives.
+  const [solarBlip, setSolarBlip] = useState(false);
+  const prevSolarKw = useRef<number | null>(null);
+  useEffect(() => {
+    if (solarKw === null || solarKw === prevSolarKw.current) {
+      return;
+    }
+    prevSolarKw.current = solarKw;
+    setSolarBlip(true);
+    const t = setTimeout(() => setSolarBlip(false), 650);
+    return () => clearTimeout(t);
+  }, [solarKw]);
+
+  // Blip the Load badge every time the calculated load changes.
+  const [loadBlip, setLoadBlip] = useState(false);
+  const prevLoadKw = useRef<number | null>(null);
+  useEffect(() => {
+    if (loadKw === null || loadKw === prevLoadKw.current) {
+      return;
+    }
+    prevLoadKw.current = loadKw;
+    setLoadBlip(true);
+    const t = setTimeout(() => setLoadBlip(false), 650);
+    return () => clearTimeout(t);
+  }, [loadKw]);
+
+  const connectionLabel = gridConnected || solarConnected ? 'WebSocket connected' : 'WebSocket disconnected';
+  const connectionDescription = gridError?.message ?? solarError?.message ?? connectionLabel;
 
   return (
     <div className="w-full xl:w-[45%] flex-shrink-0 bg-white dark:bg-boxdark border border-stroke dark:border-strokedark shadow-default rounded-sm relative min-h-[500px] xl:min-h-0 overflow-hidden">
@@ -92,13 +135,13 @@ const PowerFlowPanel = memo(function PowerFlowPanel() {
         aria-live="polite"
         title={connectionDescription}
       >
-        {isConnected ? (
+        {gridConnected || solarConnected ? (
           <Wifi className="size-4 text-success-600 dark:text-success-400" aria-hidden="true" />
         ) : (
           <WifiOff className="size-4 text-error-600 dark:text-error-400" aria-hidden="true" />
         )}
-        <span className={isConnected ? 'text-success-700 dark:text-success-400' : 'text-error-700 dark:text-error-400'}>
-          {isConnected ? 'Connected' : 'Disconnected'}
+        <span className={gridConnected || solarConnected ? 'text-success-700 dark:text-success-400' : 'text-error-700 dark:text-error-400'}>
+          {gridConnected || solarConnected ? 'Connected' : 'Disconnected'}
         </span>
       </div>
 
@@ -129,13 +172,13 @@ const PowerFlowPanel = memo(function PowerFlowPanel() {
         <circle cx="50%" cy="70%" r="8" fill="#38bdf8" filter="url(#glow)" />
       </svg>
 
-      {/* Nodes (Grid value is live from Node-RED, others are mock) */}
+      {/* Nodes (Grid, Solar, and Load values are live from Node-RED) */}
       {NODES.map((node) => (
         <FlowNode
           key={node.title}
           {...node}
-          value={node.title === 'Grid' ? gridValue : node.value}
-          pulse={node.title === 'Grid' && blip}
+          value={node.title === 'Grid' ? gridValue : node.title === 'Solar' ? solarValue : node.title === 'Load' ? loadValue : node.value}
+          pulse={(node.title === 'Grid' && gridBlip) || (node.title === 'Solar' && solarBlip) || (node.title === 'Load' && loadBlip)}
         />
       ))}
     </div>

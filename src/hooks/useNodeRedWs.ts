@@ -76,8 +76,24 @@ export const useNodeRedWs = <T = unknown>(url: string): NodeRedWsResult<T> => {
               throw new Error('The message is not JSON text.');
             }
 
-            setData(JSON.parse(event.data) as T);
-            setError(null);
+            const raw = event.data.trim();
+
+            // Try standard JSON parse first
+            try {
+              setData(JSON.parse(raw) as T);
+              setError(null);
+              return;
+            } catch {
+              // Not valid JSON — try "key: value" format (e.g. "totalsolardevice: 17")
+              const keyValueMatch = raw.match(/^(\w+)\s*:\s*(-?\d+(?:\.\d+)?)$/);
+              if (keyValueMatch) {
+                setData({ [keyValueMatch[1]]: Number(keyValueMatch[2]) } as T);
+                setError(null);
+                return;
+              }
+              // Re-throw original JSON error if fallback also fails
+              throw new Error('The message is not valid JSON or key:value format.');
+            }
           } catch (parseError) {
             const errorMessage = asError(parseError, 'Unknown JSON parsing error.');
             setError(new Error(`Failed to parse Node-RED WebSocket data: ${errorMessage.message}`));

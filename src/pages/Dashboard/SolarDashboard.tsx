@@ -7,76 +7,79 @@ import PowerTrendChart from '../../components/solar/PowerTrendChart';
 import { useNodeRedWs } from '../../hooks/useNodeRedWs';
 import { useAnimatedNumber } from '../../hooks/useAnimatedNumber';
 
-const TOTAL_YIELD_WS_URL: string = `${import.meta.env.VITE_NODE_RED_WS_BASE_URL ?? ''}${import.meta.env.VITE_NODE_RED_ON_TOTAL_YIELD_SOLAR_PATH ?? ''}`;
-const TOTAL_SOLAR_DEVICE_WS_URL: string = `${import.meta.env.VITE_NODE_RED_WS_BASE_URL ?? ''}${import.meta.env.VITE_NODE_RED_ON_TOTAL_SOLAR_DEVICE ?? ''}`;
+const WS_BASE = import.meta.env.VITE_NODE_RED_WS_BASE_URL ?? '';
+const TOTAL_YIELD_WS_URL = `${WS_BASE}${import.meta.env.VITE_NODE_RED_ON_TOTAL_YIELD_SOLAR_PATH ?? ''}`;
+const TOTAL_SOLAR_DEVICE_WS_URL = `${WS_BASE}${import.meta.env.VITE_NODE_RED_ON_TOTAL_SOLAR_DEVICE ?? ''}`;
+const TOTAL_SOLAR_DEVICE_CONNECTED_WS_URL = `${WS_BASE}${import.meta.env.VITE_NODE_RED_ON_TOTAL_SOLAR_DEVICE_CONNECTED ?? ''}`;
 
-const FALLBACK_TOTAL_YIELD = '---';
-const FALLBACK_TOTAL_SOLAR_DEVICE = '---';
+const FALLBACK = '---';
+
+const toFiniteNumber = (value: unknown): number | null => {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim() !== '') {
+    const n = Number(value);
+    if (Number.isFinite(n)) return n;
+  }
+  return null;
+};
 
 // Extract tot_kwh_Acc_plts from the WS payload
 const extractTotalYield = (payload: unknown): number | null => {
   if (payload !== null && typeof payload === 'object') {
-    const record = payload as Record<string, unknown>;
-    const value = record['tot_kwh_Acc_plts'];
-    if (typeof value === 'number' && Number.isFinite(value)) {
-      return value;
+    return toFiniteNumber((payload as Record<string, unknown>)['tot_kwh_Acc_plts']);
+  }
+  return null;
+};
+
+// Generic extractor for count payloads: raw number, "key: value" string,
+// JSON string, or an object with one of the known keys.
+const extractCount = (payload: unknown, keys: string[]): number | null => {
+  if (typeof payload === 'number' && Number.isFinite(payload)) {
+    return payload;
+  }
+  if (typeof payload === 'string' && payload.trim() !== '') {
+    const trimmed = payload.trim();
+    const direct = toFiniteNumber(trimmed);
+    if (direct !== null) return direct;
+    const keyValueMatch = trimmed.match(/^(\w+)\s*:\s*(-?\d+(?:\.\d+)?)$/);
+    if (keyValueMatch) {
+      const n = Number(keyValueMatch[2]);
+      if (Number.isFinite(n)) return n;
     }
-    if (typeof value === 'string' && value.trim() !== '') {
-      const n = Number(value);
-      if (Number.isFinite(n)) {
-        return n;
-      }
+    try {
+      return extractCount(JSON.parse(trimmed), keys);
+    } catch {
+      return null;
+    }
+  }
+  if (payload !== null && typeof payload === 'object') {
+    const record = payload as Record<string, unknown>;
+    for (const key of keys) {
+      const n = toFiniteNumber(record[key]);
+      if (n !== null) return n;
     }
   }
   return null;
 };
 
-// Extract device count from the WS payload (totalsolardevice or similar)
-const extractTotalSolarDevice = (payload: unknown): number | null => {
-  // Handle raw number payloads (e.g. Node-RED sends just `17`)
-  if (typeof payload === 'number' && Number.isFinite(payload)) {
-    return payload;
-  }
-  // Handle string payloads — try plain number, "key: value" format, then JSON
-  if (typeof payload === 'string' && payload.trim() !== '') {
-    const trimmed = payload.trim();
-    // Try parsing as a plain number first
-    const directNumber = Number(trimmed);
-    if (Number.isFinite(directNumber)) {
-      return directNumber;
-    }
-    // Try parsing "key: value" format (e.g. "totalsolardevice: 17")
-    const keyValueMatch = trimmed.match(/^(\w+)\s*:\s*(-?\d+(?:\.\d+)?)$/);
-    if (keyValueMatch) {
-      const n = Number(keyValueMatch[2]);
-      if (Number.isFinite(n)) {
-        return n;
-      }
-    }
-    // Try parsing as JSON string
-    try {
-      return extractTotalSolarDevice(JSON.parse(trimmed));
-    } catch {
-      // Not valid JSON — fall through
-    }
-  }
-  // Handle object payloads with known keys
-  if (payload !== null && typeof payload === 'object') {
-    const record = payload as Record<string, unknown>;
-    for (const key of ['totalsolardevice', 'tot_device_plts', 'total_devices', 'device_count', 'total_device', 'value']) {
-      const value = record[key];
-      if (typeof value === 'number' && Number.isFinite(value)) {
-        return value;
-      }
-      if (typeof value === 'string' && value.trim() !== '') {
-        const n = Number(value);
-        if (Number.isFinite(n)) {
-          return n;
-        }
-      }
-    }
-  }
-  return null;
+const extractTotalSolarDevice = (payload: unknown) =>
+  extractCount(payload, ['totalsolardevice', 'tot_device_plts', 'total_devices', 'device_count', 'total_device', 'value']);
+
+const extractTotalGridConnected = (payload: unknown) =>
+  extractCount(payload, ['totalgridconnected', 'total_grid_connected', 'total_connected', 'device_connected', 'value']);
+
+// Blips true for ~650ms every time the value changes
+const useValueBlip = (value: number | null): boolean => {
+  const [blip, setBlip] = useState(false);
+  const prev = useRef<number | null>(null);
+  useEffect(() => {
+    if (value === null || value === prev.current) return;
+    prev.current = value;
+    setBlip(true);
+    const t = setTimeout(() => setBlip(false), 650);
+    return () => clearTimeout(t);
+  }, [value]);
+  return blip;
 };
 
 // --- MAIN DASHBOARD COMPONENT ---
@@ -86,42 +89,23 @@ const extractTotalSolarDevice = (payload: unknown): number | null => {
 const SolarDashboard = memo(function SolarDashboard() {
   const { data: totalYieldPayload } = useNodeRedWs(TOTAL_YIELD_WS_URL);
   const { data: totalSolarDevicePayload } = useNodeRedWs(TOTAL_SOLAR_DEVICE_WS_URL);
+  const { data: totalSolarDeviceConnectedPayload } = useNodeRedWs(TOTAL_SOLAR_DEVICE_CONNECTED_WS_URL);
 
   const totalYieldKwh = extractTotalYield(totalYieldPayload);
   const totalSolarDevice = extractTotalSolarDevice(totalSolarDevicePayload);
+  const totalGridConnected = extractTotalGridConnected(totalSolarDeviceConnectedPayload);
 
   // Smoothly animate displayed values toward their targets
   const animatedTotalYield = useAnimatedNumber(totalYieldKwh, 800);
   const animatedTotalSolarDevice = useAnimatedNumber(totalSolarDevice, 800);
+  const animatedTotalGridConnected = useAnimatedNumber(totalGridConnected, 800);
 
-  const totalYieldDisplay = animatedTotalYield !== null ? animatedTotalYield.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : FALLBACK_TOTAL_YIELD;
-  const totalSolarDeviceDisplay = animatedTotalSolarDevice !== null ? Math.round(animatedTotalSolarDevice).toString() : FALLBACK_TOTAL_SOLAR_DEVICE;
+  const totalYieldDisplay = animatedTotalYield !== null ? animatedTotalYield.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : FALLBACK;
+  const totalSolarDeviceDisplay = animatedTotalSolarDevice !== null ? Math.round(animatedTotalSolarDevice).toString() : FALLBACK;
+  const totalGridConnectedDisplay = animatedTotalGridConnected !== null ? Math.round(animatedTotalGridConnected).toString() : FALLBACK;
 
-  // Blip the Total Yield card every time a new reading arrives
-  const [totalYieldBlip, setTotalYieldBlip] = useState(false);
-  const prevTotalYieldKwh = useRef<number | null>(null);
-  useEffect(() => {
-    if (totalYieldKwh === null || totalYieldKwh === prevTotalYieldKwh.current) {
-      return;
-    }
-    prevTotalYieldKwh.current = totalYieldKwh;
-    setTotalYieldBlip(true);
-    const t = setTimeout(() => setTotalYieldBlip(false), 650);
-    return () => clearTimeout(t);
-  }, [totalYieldKwh]);
-
-  // Blip the Total On-Grid card every time a new reading arrives
-  const [totalSolarDeviceBlip, setTotalSolarDeviceBlip] = useState(false);
-  const prevTotalSolarDevice = useRef<number | null>(null);
-  useEffect(() => {
-    if (totalSolarDevice === null || totalSolarDevice === prevTotalSolarDevice.current) {
-      return;
-    }
-    prevTotalSolarDevice.current = totalSolarDevice;
-    setTotalSolarDeviceBlip(true);
-    const t = setTimeout(() => setTotalSolarDeviceBlip(false), 650);
-    return () => clearTimeout(t);
-  }, [totalSolarDevice]);
+  const totalYieldBlip = useValueBlip(totalYieldKwh);
+  const totalSolarDeviceBlip = useValueBlip(totalSolarDevice);
 
   return (
     <div className="w-full">
@@ -140,7 +124,7 @@ const SolarDashboard = memo(function SolarDashboard() {
               <div className={`text-4xl font-bold text-white ${totalSolarDeviceBlip ? 'animate-blip' : ''}`}>{totalSolarDeviceDisplay}</div>
             </Card>
             <KPICard title="Total Off-Grid:" value="0" />
-            <KPICard title="Dev Connected" value="10" />
+            <KPICard title="Dev Connected" value={totalGridConnectedDisplay} />
             <KPICard title="Dev. Fault:" value="0" />
             <Card className="flex flex-col items-center justify-center col-span-2 lg:col-span-1 lg:col-start-5 py-6">
               <div className="text-gray-500 dark:text-gray-400 text-sm mb-1 text-center">Annual Yield (kWh):</div>

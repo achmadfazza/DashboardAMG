@@ -41,8 +41,8 @@ export default function App() {
           <Route element={<ProtectedRoute />}>
               <Route element={<AppLayout />}>
                 <Route index path="/" element={
-                    <Suspense fallback={dashboardFallback}>
-                      <OeeDashboard />
+                     <Suspense fallback={dashboardFallback}>
+                      <SolarDashboard />
                     </Suspense>
                   } />
                 <Route

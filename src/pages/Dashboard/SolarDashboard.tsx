@@ -6,6 +6,7 @@ import PowerSourcePie from '../../components/solar/PowerSourcePie';
 import PowerTrendChart from '../../components/solar/PowerTrendChart';
 import { useNodeRedWs } from '../../hooks/useNodeRedWs';
 import { useAnimatedNumber } from '../../hooks/useAnimatedNumber';
+import { useFitText } from '../../hooks/useFitText';
 
 const WS_BASE = import.meta.env.VITE_NODE_RED_WS_BASE_URL ?? '';
 const TOTAL_YIELD_WS_URL = `${WS_BASE}${import.meta.env.VITE_NODE_RED_ON_TOTAL_YIELD_KWH_SOLAR ?? ''}`;
@@ -15,6 +16,7 @@ const TOTAL_SOLAR_DEVICE_WS_URL = `${WS_BASE}${import.meta.env.VITE_NODE_RED_ON_
 const TOTAL_SOLAR_DEVICE_CONNECTED_WS_URL = `${WS_BASE}${import.meta.env.VITE_NODE_RED_ON_TOTAL_SOLAR_DEVICE_CONNECTED ?? ''}`;
 const SOLAR_DEVICE_FAULT_WS_URL = `${WS_BASE}${import.meta.env.VITE_NODE_RED_ON_SOLAR_DEVICE_FAULT ?? ''}`;
 const SOLAR_DEVICE_OFF_WS_URL = `${WS_BASE}${import.meta.env.VITE_NODE_RED_ON_SOLAR_DEVICE_OFF ?? ''}`;
+const ANNUAL_YIELD_WS_URL = `${WS_BASE}${import.meta.env.VITE_NODE_RED_ON_ANNUAL_YIELD_KWH_SOLAR ?? ''}`;
 
 const FALLBACK = '---';
 
@@ -50,6 +52,10 @@ const extractMonthlyYield = (payload: unknown): number | null => {
   }
   return null;
 };
+
+// Extract annual yield from the WS payload (object, JSON string, or "key: value")
+const extractAnnualYield = (payload: unknown) =>
+  extractCount(payload, ['tot_kwh_Year_plts', 'tot_kwh_year_plts', 'tot_kwh_Yearly_plts', 'tot_kwh_yearly_plts', 'totalyearlypltskwh', 'annual_yield', 'value']);
 
 // Generic extractor for count payloads: raw number, "key: value" string,
 // JSON string, or an object with one of the known keys.
@@ -120,6 +126,7 @@ const SolarDashboard = memo(function SolarDashboard() {
   const { data: totalSolarDeviceConnectedPayload } = useNodeRedWs(TOTAL_SOLAR_DEVICE_CONNECTED_WS_URL);
   const { data: solarDeviceFaultPayload } = useNodeRedWs(SOLAR_DEVICE_FAULT_WS_URL);
   const { data: solarDeviceOffPayload } = useNodeRedWs(SOLAR_DEVICE_OFF_WS_URL);
+  const { data: annualYieldPayload } = useNodeRedWs(ANNUAL_YIELD_WS_URL);
 
   const extractedTotalYield = extractTotalYield(totalYieldPayload);
   // The WS endpoint interleaves tot_kwh_Acc_plts with other payloads
@@ -136,6 +143,7 @@ const SolarDashboard = memo(function SolarDashboard() {
   const totalGridConnected = extractTotalGridConnected(totalSolarDeviceConnectedPayload);
   const totalFault = extractTotalFault(solarDeviceFaultPayload);
   const totalOffGrid = extractTotalOffGrid(solarDeviceOffPayload);
+  const annualYieldKwh = extractAnnualYield(annualYieldPayload);
 
   // Smoothly animate displayed values toward their targets
   const animatedTotalYield = useAnimatedNumber(totalYieldKwh, 800);
@@ -145,6 +153,7 @@ const SolarDashboard = memo(function SolarDashboard() {
   const animatedTotalGridConnected = useAnimatedNumber(totalGridConnected, 800);
   const animatedTotalFault = useAnimatedNumber(totalFault, 800);
   const animatedTotalOffGrid = useAnimatedNumber(totalOffGrid, 800);
+  const animatedAnnualYield = useAnimatedNumber(annualYieldKwh, 800);
 
   const totalYieldDisplay = animatedTotalYield !== null ? animatedTotalYield.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : FALLBACK;
   const dailyYieldDisplay = animatedDailyYield !== null ? animatedDailyYield.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : FALLBACK;
@@ -153,7 +162,10 @@ const SolarDashboard = memo(function SolarDashboard() {
   const totalGridConnectedDisplay = animatedTotalGridConnected !== null ? Math.round(animatedTotalGridConnected).toString() : FALLBACK;
   const totalFaultDisplay = animatedTotalFault !== null ? Math.round(animatedTotalFault).toString() : FALLBACK;
   const totalOffGridDisplay = animatedTotalOffGrid !== null ? Math.round(animatedTotalOffGrid).toString() : FALLBACK;
+  const annualYieldDisplay = animatedAnnualYield !== null ? animatedAnnualYield.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : FALLBACK;
   const totalOffGridBlip = useValueBlip(totalOffGrid);
+  const annualYieldBlip = useValueBlip(annualYieldKwh);
+  const annualYieldRef = useFitText<HTMLDivElement>(annualYieldDisplay, 10, 24);
   const totalFaultBlip = useValueBlip(totalFault);
 
   const totalYieldBlip = useValueBlip(totalYieldKwh);
@@ -182,7 +194,7 @@ const SolarDashboard = memo(function SolarDashboard() {
             <KPICard title="Dev. Fault:" value={totalFaultDisplay} blip={totalFaultBlip} />
             <Card className="flex flex-col items-center justify-center col-span-2 lg:col-span-1 lg:col-start-5 py-6">
               <div className="text-gray-500 dark:text-gray-400 text-sm mb-1 text-center">Annual Yield (kWh):</div>
-              <div className="text-2xl font-bold text-black dark:text-white text-center mt-2">58332.9</div>
+              <div ref={annualYieldRef} style={{ fontSize: '24px' }} className={`font-bold text-black dark:text-white text-center mt-2 whitespace-nowrap ${annualYieldBlip ? 'animate-blip' : ''}`}>{annualYieldDisplay}</div>
             </Card>
           </div>
 
@@ -190,15 +202,15 @@ const SolarDashboard = memo(function SolarDashboard() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card className="flex items-center justify-center py-6">
               <div className="text-gray-500 dark:text-gray-400 text-sm mr-2">Daily Yield (kWh):</div>
-              <div className={`text-xl font-bold text-black dark:text-white ${dailyYieldBlip ? 'animate-blip' : ''}`}>{dailyYieldDisplay}</div>
+              <div className={`text-lg font-bold text-black dark:text-white ${dailyYieldBlip ? 'animate-blip' : ''}`}>{dailyYieldDisplay}</div>
             </Card>
             <Card className="flex items-center justify-center py-6">
               <div className="text-gray-500 dark:text-gray-400 text-sm mr-2">Total Yield (kWh):</div>
-              <div className={`text-xl font-bold text-black dark:text-white ${totalYieldBlip ? 'animate-blip' : ''}`}>{totalYieldDisplay}</div>
+              <div className={`text-lg font-bold text-black dark:text-white ${totalYieldBlip ? 'animate-blip' : ''}`}>{totalYieldDisplay}</div>
             </Card>
             <Card className="flex items-center justify-center py-6">
               <div className="text-gray-500 dark:text-gray-400 text-sm mr-2">Monthly Yield (kWh):</div>
-              <div className={`text-xl font-bold text-black dark:text-white ${monthlyYieldBlip ? 'animate-blip' : ''}`}>{monthlyYieldDisplay}</div>
+              <div className={`text-lg font-bold text-black dark:text-white ${monthlyYieldBlip ? 'animate-blip' : ''}`}>{monthlyYieldDisplay}</div>
             </Card>
           </div>
 

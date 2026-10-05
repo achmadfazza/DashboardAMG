@@ -11,6 +11,7 @@ export interface KPICardProps {
    value: string | number;
    unit?: string;
    className?: string;
+   blip?: boolean;
 }
 
 export interface FlowNodeProps {

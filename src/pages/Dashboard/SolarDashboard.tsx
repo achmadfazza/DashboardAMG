@@ -8,9 +8,13 @@ import { useNodeRedWs } from '../../hooks/useNodeRedWs';
 import { useAnimatedNumber } from '../../hooks/useAnimatedNumber';
 
 const WS_BASE = import.meta.env.VITE_NODE_RED_WS_BASE_URL ?? '';
-const TOTAL_YIELD_WS_URL = `${WS_BASE}${import.meta.env.VITE_NODE_RED_ON_TOTAL_YIELD_SOLAR_PATH ?? ''}`;
+const TOTAL_YIELD_WS_URL = `${WS_BASE}${import.meta.env.VITE_NODE_RED_ON_TOTAL_YIELD_KWH_SOLAR ?? ''}`;
+const DAILY_YIELD_WS_URL = `${WS_BASE}${import.meta.env.VITE_NODE_RED_ON_DAILY_YIELD_KWH_SOLAR ?? ''}`;
+const MONTHLY_YIELD_WS_URL = `${WS_BASE}${import.meta.env.VITE_NODE_RED_ON_MONTHLY_YIELD_KWH_SOLAR ?? ''}`;
 const TOTAL_SOLAR_DEVICE_WS_URL = `${WS_BASE}${import.meta.env.VITE_NODE_RED_ON_TOTAL_SOLAR_DEVICE ?? ''}`;
 const TOTAL_SOLAR_DEVICE_CONNECTED_WS_URL = `${WS_BASE}${import.meta.env.VITE_NODE_RED_ON_TOTAL_SOLAR_DEVICE_CONNECTED ?? ''}`;
+const SOLAR_DEVICE_FAULT_WS_URL = `${WS_BASE}${import.meta.env.VITE_NODE_RED_ON_SOLAR_DEVICE_FAULT ?? ''}`;
+const SOLAR_DEVICE_OFF_WS_URL = `${WS_BASE}${import.meta.env.VITE_NODE_RED_ON_SOLAR_DEVICE_OFF ?? ''}`;
 
 const FALLBACK = '---';
 
@@ -27,6 +31,22 @@ const toFiniteNumber = (value: unknown): number | null => {
 const extractTotalYield = (payload: unknown): number | null => {
   if (payload !== null && typeof payload === 'object') {
     return toFiniteNumber((payload as Record<string, unknown>)['tot_kwh_Acc_plts']);
+  }
+  return null;
+};
+
+// Extract tot_kwh_Day_plts from the WS payload
+const extractDailyYield = (payload: unknown): number | null => {
+  if (payload !== null && typeof payload === 'object') {
+    return toFiniteNumber((payload as Record<string, unknown>)['tot_kwh_Day_plts']);
+  }
+  return null;
+};
+
+// Extract tot_kwh_Month_plts from the WS payload
+const extractMonthlyYield = (payload: unknown): number | null => {
+  if (payload !== null && typeof payload === 'object') {
+    return toFiniteNumber((payload as Record<string, unknown>)['tot_kwh_Month_plts']);
   }
   return null;
 };
@@ -68,6 +88,12 @@ const extractTotalSolarDevice = (payload: unknown) =>
 const extractTotalGridConnected = (payload: unknown) =>
   extractCount(payload, ['totalgridconnected', 'total_grid_connected', 'total_connected', 'device_connected', 'value']);
 
+const extractTotalFault = (payload: unknown) =>
+  extractCount(payload, ['totalgridfault', 'total_grid_fault', 'total_fault', 'fault', 'value']);
+
+const extractTotalOffGrid = (payload: unknown) =>
+  extractCount(payload, ['totalgridOFF', 'totalgridoff', 'total_grid_off', 'total_off_grid', 'offgrid', 'value']);
+
 // Blips true for ~650ms every time the value changes
 const useValueBlip = (value: number | null): boolean => {
   const [blip, setBlip] = useState(false);
@@ -88,23 +114,51 @@ const useValueBlip = (value: number | null): boolean => {
 // toggle) don't rebuild them.
 const SolarDashboard = memo(function SolarDashboard() {
   const { data: totalYieldPayload } = useNodeRedWs(TOTAL_YIELD_WS_URL);
+  const { data: dailyYieldPayload } = useNodeRedWs(DAILY_YIELD_WS_URL);
+  const { data: monthlyYieldPayload } = useNodeRedWs(MONTHLY_YIELD_WS_URL);
   const { data: totalSolarDevicePayload } = useNodeRedWs(TOTAL_SOLAR_DEVICE_WS_URL);
   const { data: totalSolarDeviceConnectedPayload } = useNodeRedWs(TOTAL_SOLAR_DEVICE_CONNECTED_WS_URL);
+  const { data: solarDeviceFaultPayload } = useNodeRedWs(SOLAR_DEVICE_FAULT_WS_URL);
+  const { data: solarDeviceOffPayload } = useNodeRedWs(SOLAR_DEVICE_OFF_WS_URL);
 
-  const totalYieldKwh = extractTotalYield(totalYieldPayload);
+  const extractedTotalYield = extractTotalYield(totalYieldPayload);
+  // The WS endpoint interleaves tot_kwh_Acc_plts with other payloads
+  // (tot_kwh_Day_plts, ...), which extract to null. Keep the last valid
+  // value so the display doesn't blink back to the fallback.
+  const lastTotalYieldRef = useRef<number | null>(null);
+  if (extractedTotalYield !== null) {
+    lastTotalYieldRef.current = extractedTotalYield;
+  }
+  const totalYieldKwh = lastTotalYieldRef.current;
+  const dailyYieldKwh = extractDailyYield(dailyYieldPayload);
+  const monthlyYieldKwh = extractMonthlyYield(monthlyYieldPayload);
   const totalSolarDevice = extractTotalSolarDevice(totalSolarDevicePayload);
   const totalGridConnected = extractTotalGridConnected(totalSolarDeviceConnectedPayload);
+  const totalFault = extractTotalFault(solarDeviceFaultPayload);
+  const totalOffGrid = extractTotalOffGrid(solarDeviceOffPayload);
 
   // Smoothly animate displayed values toward their targets
   const animatedTotalYield = useAnimatedNumber(totalYieldKwh, 800);
+  const animatedDailyYield = useAnimatedNumber(dailyYieldKwh, 800);
+  const animatedMonthlyYield = useAnimatedNumber(monthlyYieldKwh, 800);
   const animatedTotalSolarDevice = useAnimatedNumber(totalSolarDevice, 800);
   const animatedTotalGridConnected = useAnimatedNumber(totalGridConnected, 800);
+  const animatedTotalFault = useAnimatedNumber(totalFault, 800);
+  const animatedTotalOffGrid = useAnimatedNumber(totalOffGrid, 800);
 
   const totalYieldDisplay = animatedTotalYield !== null ? animatedTotalYield.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : FALLBACK;
+  const dailyYieldDisplay = animatedDailyYield !== null ? animatedDailyYield.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : FALLBACK;
+  const monthlyYieldDisplay = animatedMonthlyYield !== null ? animatedMonthlyYield.toLocaleString('en-US', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : FALLBACK;
   const totalSolarDeviceDisplay = animatedTotalSolarDevice !== null ? Math.round(animatedTotalSolarDevice).toString() : FALLBACK;
   const totalGridConnectedDisplay = animatedTotalGridConnected !== null ? Math.round(animatedTotalGridConnected).toString() : FALLBACK;
+  const totalFaultDisplay = animatedTotalFault !== null ? Math.round(animatedTotalFault).toString() : FALLBACK;
+  const totalOffGridDisplay = animatedTotalOffGrid !== null ? Math.round(animatedTotalOffGrid).toString() : FALLBACK;
+  const totalOffGridBlip = useValueBlip(totalOffGrid);
+  const totalFaultBlip = useValueBlip(totalFault);
 
   const totalYieldBlip = useValueBlip(totalYieldKwh);
+  const dailyYieldBlip = useValueBlip(dailyYieldKwh);
+  const monthlyYieldBlip = useValueBlip(monthlyYieldKwh);
   const totalSolarDeviceBlip = useValueBlip(totalSolarDevice);
 
   return (
@@ -123,9 +177,9 @@ const SolarDashboard = memo(function SolarDashboard() {
               <div className="text-white/90 text-sm font-medium mb-1">Total On-Grid:</div>
               <div className={`text-4xl font-bold text-white ${totalSolarDeviceBlip ? 'animate-blip' : ''}`}>{totalSolarDeviceDisplay}</div>
             </Card>
-            <KPICard title="Total Off-Grid:" value="0" />
+            <KPICard title="Total Off-Grid:" value={totalOffGridDisplay} blip={totalOffGridBlip} />
             <KPICard title="Dev Connected" value={totalGridConnectedDisplay} />
-            <KPICard title="Dev. Fault:" value="0" />
+            <KPICard title="Dev. Fault:" value={totalFaultDisplay} blip={totalFaultBlip} />
             <Card className="flex flex-col items-center justify-center col-span-2 lg:col-span-1 lg:col-start-5 py-6">
               <div className="text-gray-500 dark:text-gray-400 text-sm mb-1 text-center">Annual Yield (kWh):</div>
               <div className="text-2xl font-bold text-black dark:text-white text-center mt-2">58332.9</div>
@@ -136,7 +190,7 @@ const SolarDashboard = memo(function SolarDashboard() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Card className="flex items-center justify-center py-6">
               <div className="text-gray-500 dark:text-gray-400 text-sm mr-2">Daily Yield (kWh):</div>
-              <div className="text-xl font-bold text-black dark:text-white">5591.1</div>
+              <div className={`text-xl font-bold text-black dark:text-white ${dailyYieldBlip ? 'animate-blip' : ''}`}>{dailyYieldDisplay}</div>
             </Card>
             <Card className="flex items-center justify-center py-6">
               <div className="text-gray-500 dark:text-gray-400 text-sm mr-2">Total Yield (kWh):</div>
@@ -144,7 +198,7 @@ const SolarDashboard = memo(function SolarDashboard() {
             </Card>
             <Card className="flex items-center justify-center py-6">
               <div className="text-gray-500 dark:text-gray-400 text-sm mr-2">Monthly Yield (kWh):</div>
-              <div className="text-xl font-bold text-black dark:text-white">58332.9</div>
+              <div className={`text-xl font-bold text-black dark:text-white ${monthlyYieldBlip ? 'animate-blip' : ''}`}>{monthlyYieldDisplay}</div>
             </Card>
           </div>
 

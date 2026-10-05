@@ -9,8 +9,10 @@ interface ImportMetaEnv {
   readonly VITE_NODE_RED_ON_GRID_PATH: string;
   /** Node-RED WebSocket path for solar power, appended to the base URL. */
   readonly VITE_NODE_RED_ON_SOLAR_PATH: string;
-  /** Node-RED power meter history endpoint (REST GET, last 12 hours). */
-  readonly VITE_NODE_RED_API_URL: string;
+  /** Node-RED REST API base URL, e.g. "http://172.17.173.164:1880". */
+  readonly VITE_NODE_RED_API_BASE_URL: string;
+  /** Node-RED REST path for power meter history, appended to the base URL. */
+  readonly VITE_NODE_RED_API_POWER_METER_PATH: string;
 }
 
 interface ImportMeta {

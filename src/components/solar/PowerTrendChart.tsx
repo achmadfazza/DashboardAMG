@@ -15,7 +15,7 @@ import type { TooltipProps } from 'recharts';
 import Card from './Card';
 import { formatClockLabel, getPowerYAxisScale, usePowerMeterHistory } from '../../hooks/usePowerMeterHistory';
 
-const API_URL: string = import.meta.env.VITE_NODE_RED_API_URL ?? '';
+const API_URL: string = `${import.meta.env.VITE_NODE_RED_API_BASE_URL ?? ''}${import.meta.env.VITE_NODE_RED_API_POWER_METER_PATH ?? ''}`;
 
 // Only the meter series has a live source (Node-RED /api/power-meter, last 12
 // hours). The previous inverter/load lines were hardcoded mock values plotted

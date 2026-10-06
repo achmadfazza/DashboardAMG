@@ -172,6 +172,7 @@ const SolarDashboard = memo(function SolarDashboard() {
   const dailyYieldBlip = useValueBlip(dailyYieldKwh);
   const monthlyYieldBlip = useValueBlip(monthlyYieldKwh);
   const totalSolarDeviceBlip = useValueBlip(totalSolarDevice);
+  const totalGridConnectedBlip = useValueBlip(totalGridConnected);
 
   return (
     <div className="w-full">
@@ -181,16 +182,16 @@ const SolarDashboard = memo(function SolarDashboard() {
         <PowerFlowPanel />
 
         {/* Right Panel - Stats & Charts */}
-        <div className="w-full xl:w-[55%] flex flex-col gap-4">
+        <div className="w-full xl:w-[60%] flex flex-col gap-4">
 
           {/* Top Row KPIs */}
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
             <Card className="!bg-emerald-600 flex flex-col items-center justify-center col-span-1 py-6 border-none">
               <div className="text-white/90 text-sm font-medium mb-1">Total On-Grid:</div>
-              <div className={`text-4xl font-bold text-white ${totalSolarDeviceBlip ? 'animate-blip' : ''}`}>{totalSolarDeviceDisplay}</div>
+              <div className={`text-4xl font-bold text-white ${totalGridConnectedBlip ? 'animate-blip' : ''}`}>{totalGridConnectedDisplay}</div>
             </Card>
             <KPICard title="Total Off-Grid:" value={totalOffGridDisplay} blip={totalOffGridBlip} />
-            <KPICard title="Dev Connected" value={totalGridConnectedDisplay} />
+            <KPICard title="Dev Connected" value={totalSolarDeviceDisplay} blip={totalSolarDeviceBlip} />
             <KPICard title="Dev. Fault:" value={totalFaultDisplay} blip={totalFaultBlip} />
             <Card className="flex flex-col items-center justify-center col-span-2 lg:col-span-1 lg:col-start-5 py-6">
               <div className="text-gray-500 dark:text-gray-400 text-sm mb-1 text-center">Annual Yield (kWh):</div>

@@ -23,7 +23,7 @@ import { ScrollToTop } from "./components/common/ScrollToTop";
 // Lazy: dashboards pull in recharts, so each gets its own chunk
 // instead of bloating the initial bundle.
 const SolarDashboard = lazy(() => import("./pages/Dashboard/SolarDashboard"));
-const OeeDashboard = lazy(() => import("./pages/Dashboard/OeeDashboard"));
+
 
 const dashboardFallback = (
   <div className="flex items-center justify-center p-12 text-sm text-gray-500 dark:text-gray-400">

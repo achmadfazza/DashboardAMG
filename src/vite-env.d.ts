@@ -13,6 +13,14 @@ interface ImportMetaEnv {
   readonly VITE_NODE_RED_API_BASE_URL: string;
   /** Node-RED REST path for power meter history, appended to the base URL. */
   readonly VITE_NODE_RED_API_POWER_METER_PATH: string;
+  /** Node-RED REST path for total PLTS power history, appended to the base URL. */
+  readonly VITE_NODE_RED_API_TOTAL_PLTS_POWER_PATH: string;
+  /** Node-RED REST path for total PLN kW history, appended to the base URL. */
+  readonly VITE_NODE_RED_API_TOTAL_PLN_KWH: string;
+  /** Node-RED REST path for total PLTS kW history, appended to the base URL. */
+  readonly VITE_NODE_RED_API_TOTAL_PLTS_KWH: string;
+  /** Node-RED REST path for combined total PLN + PLTS kW history, appended to the base URL. */
+  readonly VITE_NODE_RED_API_TOTAL_PLN_PLTS_KWH: string;
 }
 
 interface ImportMeta {

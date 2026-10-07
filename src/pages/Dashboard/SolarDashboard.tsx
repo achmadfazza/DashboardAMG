@@ -29,26 +29,10 @@ const toFiniteNumber = (value: unknown): number | null => {
   return null;
 };
 
-// Extract tot_kwh_Acc_plts from the WS payload
-const extractTotalYield = (payload: unknown): number | null => {
+// Extract a numeric field from a WS payload object
+const extractField = (payload: unknown, key: string): number | null => {
   if (payload !== null && typeof payload === 'object') {
-    return toFiniteNumber((payload as Record<string, unknown>)['tot_kwh_Acc_plts']);
-  }
-  return null;
-};
-
-// Extract tot_kwh_Day_plts from the WS payload
-const extractDailyYield = (payload: unknown): number | null => {
-  if (payload !== null && typeof payload === 'object') {
-    return toFiniteNumber((payload as Record<string, unknown>)['tot_kwh_Day_plts']);
-  }
-  return null;
-};
-
-// Extract tot_kwh_Month_plts from the WS payload
-const extractMonthlyYield = (payload: unknown): number | null => {
-  if (payload !== null && typeof payload === 'object') {
-    return toFiniteNumber((payload as Record<string, unknown>)['tot_kwh_Month_plts']);
+    return toFiniteNumber((payload as Record<string, unknown>)[key]);
   }
   return null;
 };
@@ -128,7 +112,7 @@ const SolarDashboard = memo(function SolarDashboard() {
   const { data: solarDeviceOffPayload } = useNodeRedWs(SOLAR_DEVICE_OFF_WS_URL);
   const { data: annualYieldPayload } = useNodeRedWs(ANNUAL_YIELD_WS_URL);
 
-  const extractedTotalYield = extractTotalYield(totalYieldPayload);
+  const extractedTotalYield = extractField(totalYieldPayload, 'tot_kwh_Acc_plts');
   // The WS endpoint interleaves tot_kwh_Acc_plts with other payloads
   // (tot_kwh_Day_plts, ...), which extract to null. Keep the last valid
   // value so the display doesn't blink back to the fallback.
@@ -137,8 +121,8 @@ const SolarDashboard = memo(function SolarDashboard() {
     lastTotalYieldRef.current = extractedTotalYield;
   }
   const totalYieldKwh = lastTotalYieldRef.current;
-  const dailyYieldKwh = extractDailyYield(dailyYieldPayload);
-  const monthlyYieldKwh = extractMonthlyYield(monthlyYieldPayload);
+  const dailyYieldKwh = extractField(dailyYieldPayload, 'tot_kwh_Day_plts');
+  const monthlyYieldKwh = extractField(monthlyYieldPayload, 'tot_kwh_Month_plts');
   const totalSolarDevice = extractTotalSolarDevice(totalSolarDevicePayload);
   const totalGridConnected = extractTotalGridConnected(totalSolarDeviceConnectedPayload);
   const totalFault = extractTotalFault(solarDeviceFaultPayload);
@@ -175,48 +159,48 @@ const SolarDashboard = memo(function SolarDashboard() {
   const totalGridConnectedBlip = useValueBlip(totalGridConnected);
 
   return (
-    <div className="w-full">
-      <div className="flex flex-col xl:flex-row gap-6 h-full">
+    <div className="w-full max-w-full p-4 sm:p-5 md:p-6 lg:p-8 2xl:p-10">
+      <div className="flex flex-col gap-4 sm:gap-5 md:gap-6 lg:flex-row lg:gap-6 xl:gap-8 2xl:gap-10 h-full">
 
         {/* Left Panel - Power Flow Diagram */}
         <PowerFlowPanel />
 
         {/* Right Panel - Stats & Charts */}
-        <div className="w-full xl:w-[60%] flex flex-col gap-4">
+        <div className="w-full lg:w-[60%] xl:w-[60%] 2xl:w-[60%] flex flex-col gap-3 sm:gap-4 md:gap-4 lg:gap-4 xl:gap-5 2xl:gap-6">
 
           {/* Top Row KPIs */}
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-            <Card className="!bg-emerald-600 flex flex-col items-center justify-center col-span-1 py-6 border-none">
-              <div className="text-white/90 text-sm font-medium mb-1">Total On-Grid:</div>
-              <div className={`text-4xl font-bold text-white ${totalGridConnectedBlip ? 'animate-blip' : ''}`}>{totalGridConnectedDisplay}</div>
+          <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 md:gap-4 lg:gap-4 xl:gap-5 2xl:gap-6">
+            <Card className="!bg-emerald-600 flex flex-col items-center justify-center col-span-1 py-4 sm:py-5 md:py-6 border-none">
+              <div className="text-white/90 text-xs sm:text-sm font-medium mb-1">Total On-Grid:</div>
+              <div className={`text-2xl sm:text-3xl md:text-4xl font-bold text-white ${totalGridConnectedBlip ? 'animate-blip' : ''}`}>{totalGridConnectedDisplay}</div>
             </Card>
             <KPICard title="Total Off-Grid:" value={totalOffGridDisplay} blip={totalOffGridBlip} />
             <KPICard title="Dev Connected" value={totalSolarDeviceDisplay} blip={totalSolarDeviceBlip} />
             <KPICard title="Dev. Fault:" value={totalFaultDisplay} blip={totalFaultBlip} />
-            <Card className="flex flex-col items-center justify-center col-span-2 lg:col-span-1 lg:col-start-5 py-6">
-              <div className="text-gray-500 dark:text-gray-400 text-sm mb-1 text-center">Annual Yield (kWh):</div>
+            <Card className="flex flex-col items-center justify-center col-span-2 sm:col-span-2 md:col-span-3 lg:col-span-1 lg:col-start-5 py-4 sm:py-5 md:py-6">
+              <div className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm mb-1 text-center">Annual Yield (kWh):</div>
               <div ref={annualYieldRef} style={{ fontSize: '24px' }} className={`font-bold text-black dark:text-white text-center mt-2 whitespace-nowrap ${annualYieldBlip ? 'animate-blip' : ''}`}>{annualYieldDisplay}</div>
             </Card>
           </div>
 
           {/* Middle Row Yields */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card className="flex items-center justify-center py-6">
-              <div className="text-gray-500 dark:text-gray-400 text-sm mr-2">Daily Yield (kWh):</div>
-              <div className={`text-lg font-bold text-black dark:text-white ${dailyYieldBlip ? 'animate-blip' : ''}`}>{dailyYieldDisplay}</div>
+          <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4 md:gap-4 lg:gap-4 xl:gap-5 2xl:gap-6">
+            <Card className="flex items-center justify-center py-4 sm:py-5 md:py-6">
+              <div className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm mr-2">Daily Yield (kWh):</div>
+              <div className={`text-base sm:text-lg font-bold text-black dark:text-white ${dailyYieldBlip ? 'animate-blip' : ''}`}>{dailyYieldDisplay}</div>
             </Card>
-            <Card className="flex items-center justify-center py-6">
-              <div className="text-gray-500 dark:text-gray-400 text-sm mr-2">Total Yield (kWh):</div>
-              <div className={`text-lg font-bold text-black dark:text-white ${totalYieldBlip ? 'animate-blip' : ''}`}>{totalYieldDisplay}</div>
+            <Card className="flex items-center justify-center py-4 sm:py-5 md:py-6">
+              <div className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm mr-2">Total Yield (kWh):</div>
+              <div className={`text-base sm:text-lg font-bold text-black dark:text-white ${totalYieldBlip ? 'animate-blip' : ''}`}>{totalYieldDisplay}</div>
             </Card>
-            <Card className="flex items-center justify-center py-6">
-              <div className="text-gray-500 dark:text-gray-400 text-sm mr-2">Monthly Yield (kWh):</div>
-              <div className={`text-lg font-bold text-black dark:text-white ${monthlyYieldBlip ? 'animate-blip' : ''}`}>{monthlyYieldDisplay}</div>
+            <Card className="flex items-center justify-center py-4 sm:py-5 md:py-6">
+              <div className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm mr-2">Monthly Yield (kWh):</div>
+              <div className={`text-base sm:text-lg font-bold text-black dark:text-white ${monthlyYieldBlip ? 'animate-blip' : ''}`}>{monthlyYieldDisplay}</div>
             </Card>
           </div>
 
           {/* Bottom Row Charts */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 flex-grow min-h-[350px]">
+          <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 md:gap-4 lg:gap-4 xl:gap-5 2xl:gap-6 flex-grow min-h-[350px]">
             <PowerSourcePie />
             <PowerTrendChart />
           </div>

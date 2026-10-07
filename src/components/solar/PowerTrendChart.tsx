@@ -170,7 +170,7 @@ const PowerTrendChart = memo(function PowerTrendChart() {
         : 'bg-gray-400';
 
   return (
-    <Card className="col-span-1 lg:col-span-2 flex flex-col !p-0 overflow-hidden">
+    <Card className="col-span-1 sm:col-span-1 md:col-span-2 lg:col-span-2 flex flex-col !p-0 overflow-hidden">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-stroke px-5 py-4 dark:border-gray-800 md:px-6 md:py-5">
         <div className="flex items-center gap-2.5">
           <span className="inline-flex size-8 items-center justify-center rounded-lg bg-sky-50 text-sky-500 dark:bg-sky-500/10 dark:text-sky-400">

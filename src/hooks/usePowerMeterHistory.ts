@@ -1,23 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 /**
- * Polls the Node-RED `GET /api/power-meter` endpoint, which serves the last
- * 12 hours of meter power from Postgres:
- *
- *   SELECT TO_CHAR(tgljam AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'),
- *          total_active_pwr
- *   FROM t_total_power
- *   WHERE tgljam >= NOW() - INTERVAL '12 hours'
- *   ORDER BY tgljam DESC;
- *
- * The window and ordering are fixed server-side, so the client only renders
- * what it is given. Rows arrive newest-first at ~10 minute intervals.
+ * Polls Node-RED power history (currently `/api/total-pln-plts-kwh`). Rows
+ * arrive newest-first at ~10 minute intervals. The combined endpoint uses
+ * local `datetime` values; the legacy `/api/power-meter` used UTC `tgljam`.
  */
 
 /** Postgres `numeric` columns come back as JSON strings, so power is a string. */
 export interface PowerMeterRow {
-  /** ISO-8601 UTC instant, e.g. "2026-09-26T18:40:02Z". */
-  tgljam: string;
+  /** Local timestamp from the combined endpoint; the legacy endpoint used UTC `tgljam`. */
+  datetime?: string;
+  tgljam?: string;
   /** Active power in kW as a numeric string, e.g. "1452.73". */
   total_active_pwr: string;
 }
@@ -25,7 +18,7 @@ export interface PowerMeterRow {
 export interface PowerTrendPoint {
   /** Epoch milliseconds, ascending — the natural order for a time axis. */
   timestamp: number;
-  /** Local "HH:mm" label, since the raw stamps are UTC. */
+  /** Local "HH:mm" label for the chart. */
   time: string;
   /** Active power in kW. */
   meter: number;
@@ -89,7 +82,9 @@ export const normalizePowerMeterRows = (payload: unknown): PowerTrendPoint[] => 
       continue;
     }
 
-    const timestamp = Date.parse(row.tgljam ?? '');
+    // The combined endpoint returns local "YYYY-MM-DD HH:mm:ss" values;
+    // legacy UTC ISO values still parse correctly after this conversion.
+    const timestamp = Date.parse((row.datetime ?? row.tgljam ?? '').replace(' ', 'T'));
     const rawPower = row.total_active_pwr;
     const meter =
       typeof rawPower === 'number'

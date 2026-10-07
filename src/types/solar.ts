@@ -19,6 +19,7 @@ export interface FlowNodeProps {
    title: string;
    value: string | number;
    colorClass: string;
+   iconColorClass: string;
    shadowClass?: string;
    top: string | number;
    left: string | number;

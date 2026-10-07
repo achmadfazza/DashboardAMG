@@ -1,9 +1,7 @@
 import React from 'react';
 import { FlowNodeProps } from '../../types/solar';
 
-const FlowNode: React.FC<FlowNodeProps> = ({ icon: Icon, title, value, colorClass, shadowClass = '', top, left, pulse = false }) => {
-  const iconColorClass = colorClass.split(' ')[0]?.replace('border-', 'text-') || 'text-black dark:text-white';
-
+const FlowNode: React.FC<FlowNodeProps> = ({ icon: Icon, title, value, colorClass, iconColorClass, shadowClass = '', top, left, pulse = false }) => {
   return (
     <div
       className="absolute flex flex-col items-center justify-center transform -translate-x-1/2 -translate-y-1/2 z-10"

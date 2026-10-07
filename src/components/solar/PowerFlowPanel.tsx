@@ -48,6 +48,7 @@ const NODES: FlowNodeProps[] = [
     value: '181.26 kW',
     icon: Sun,
     colorClass: 'border-amber-400',
+    iconColorClass: 'text-amber-500 dark:text-amber-300',
     shadowClass: 'shadow-[0_0_20px_rgba(251,191,36,0.3)] dark:shadow-[0_0_30px_rgba(251,191,36,0.3)]',
     top: '30%',
     left: '50%',
@@ -57,6 +58,7 @@ const NODES: FlowNodeProps[] = [
     value: '2085.12 kW',
     icon: Plug,
     colorClass: 'border-red-500',
+    iconColorClass: 'text-red-500 dark:text-red-400',
     shadowClass: 'shadow-[0_0_20px_rgba(239,68,68,0.3)] dark:shadow-[0_0_30px_rgba(239,68,68,0.3)]',
     top: '70%',
     left: '25%',
@@ -66,6 +68,7 @@ const NODES: FlowNodeProps[] = [
     value: '1903.86 kW',
     icon: Zap,
     colorClass: 'border-sky-500',
+    iconColorClass: 'text-sky-500 dark:text-sky-400',
     shadowClass: 'shadow-[0_0_20px_rgba(14,165,233,0.3)] dark:shadow-[0_0_30px_rgba(14,165,233,0.3)]',
     top: '70%',
     left: '75%',
@@ -162,11 +165,12 @@ const PowerFlowPanel = memo(function PowerFlowPanel() {
           stroke="#38bdf8" strokeWidth="6"
           strokeDasharray="12 12" className="opacity-70 animate-dash"
         />
-        {/* Flow Solar -> junction: top (Solar) toward bottom (junction) */}
+        {/* Only animate Solar -> junction when Solar is producing power. */}
         <line
           x1="50%" y1="30%" x2="50%" y2="70%"
           stroke="#38bdf8" strokeWidth="6"
-          strokeDasharray="12 17" className="opacity-70 animate-dash"
+          strokeDasharray="12 17"
+          className={solarKw !== null && solarKw > 0 ? 'opacity-70 animate-dash' : 'opacity-30'}
         />
         {/* Central Junction Dot */}
         <circle cx="50%" cy="70%" r="8" fill="#38bdf8" filter="url(#glow)" />

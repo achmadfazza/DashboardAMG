@@ -47,7 +47,9 @@ export const normalizeTotalPltsKwRows = (payload: unknown): TotalPltsKwPoint[] =
       continue;
     }
 
-    const timestamp = Date.parse(row.datetime ?? '');
+    // Node-RED returns local "YYYY-MM-DD HH:mm:ss" values. ISO's T separator
+    // makes parsing consistent across browsers without changing the timezone.
+    const timestamp = Date.parse((row.datetime ?? '').replace(' ', 'T'));
     const rawKwh: unknown = row.total_kw_plts;
     const totalKw =
       typeof rawKwh === 'number'

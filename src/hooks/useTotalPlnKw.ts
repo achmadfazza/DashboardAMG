@@ -47,7 +47,10 @@ export const normalizeTotalPlnKwRows = (payload: unknown): TotalPlnKwPoint[] => 
       continue;
     }
 
-    const timestamp = Date.parse(row.datetime ?? '');
+    // Node-RED returns a local, timezone-less "YYYY-MM-DD HH:mm:ss" value.
+    // Convert its separator to ISO syntax so browsers consistently parse it
+    // as local time; timezone-aware ISO values remain unchanged.
+    const timestamp = Date.parse((row.datetime ?? '').replace(' ', 'T'));
     const rawKwh: unknown = row.total_kw_pln;
     const totalKw =
       typeof rawKwh === 'number'

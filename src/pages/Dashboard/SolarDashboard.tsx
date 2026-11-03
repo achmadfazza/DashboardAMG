@@ -4,6 +4,7 @@ import KPICard from '../../components/solar/KPICard';
 import PowerFlowPanel from '../../components/solar/PowerFlowPanel';
 import PowerSourcePie from '../../components/solar/PowerSourcePie';
 import PowerTrendChart from '../../components/solar/PowerTrendChart';
+import HistoryDailyKwhChart from '../../components/solar/HistoryDailyKwhChart';
 import { useNodeRedWs } from '../../hooks/useNodeRedWs';
 import { useAnimatedNumber } from '../../hooks/useAnimatedNumber';
 import { useFitText } from '../../hooks/useFitText';
@@ -171,7 +172,7 @@ const SolarDashboard = memo(function SolarDashboard() {
           {/* Top Row KPIs */}
           <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4 md:gap-4 lg:gap-4 xl:gap-5 2xl:gap-6">
             <Card className="!bg-emerald-600 flex flex-col items-center justify-center col-span-1 py-4 sm:py-5 md:py-6 border-none">
-              <div className="text-white/90 text-xs sm:text-sm font-medium mb-1">Total On-Grid:</div>
+              <div className="text-white/90 text-xs sm:text-sm font-medium mb-1">Total On-Grid:</div>   
               <div className={`text-2xl sm:text-3xl md:text-4xl font-bold text-white ${totalGridConnectedBlip ? 'animate-blip' : ''}`}>{totalGridConnectedDisplay}</div>
             </Card>
             <KPICard title="Total Off-Grid:" value={totalOffGridDisplay} blip={totalOffGridBlip} />
@@ -190,12 +191,12 @@ const SolarDashboard = memo(function SolarDashboard() {
               <div className={`text-base sm:text-lg font-bold text-black dark:text-white ${dailyYieldBlip ? 'animate-blip' : ''}`}>{dailyYieldDisplay}</div>
             </Card>
             <Card className="flex items-center justify-center py-4 sm:py-5 md:py-6">
-              <div className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm mr-2">Total Yield (kWh):</div>
-              <div className={`text-base sm:text-lg font-bold text-black dark:text-white ${totalYieldBlip ? 'animate-blip' : ''}`}>{totalYieldDisplay}</div>
-            </Card>
-            <Card className="flex items-center justify-center py-4 sm:py-5 md:py-6">
               <div className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm mr-2">Monthly Yield (kWh):</div>
               <div className={`text-base sm:text-lg font-bold text-black dark:text-white ${monthlyYieldBlip ? 'animate-blip' : ''}`}>{monthlyYieldDisplay}</div>
+            </Card>
+            <Card className="flex items-center justify-center py-4 sm:py-5 md:py-6">
+              <div className="text-gray-500 dark:text-gray-400 text-xs sm:text-sm mr-2">Total Yield (kWh):</div>
+              <div className={`text-base sm:text-lg font-bold text-black dark:text-white ${totalYieldBlip ? 'animate-blip' : ''}`}>{totalYieldDisplay}</div>
             </Card>
           </div>
 
@@ -207,7 +208,9 @@ const SolarDashboard = memo(function SolarDashboard() {
 
         </div>
       </div>
-
+            <div className="mt-4 col-span-1 sm:col-span-1 md:col-span-2 lg:col-span-3 w-full">
+              <HistoryDailyKwhChart />
+            </div>
     </div>
   );
 });

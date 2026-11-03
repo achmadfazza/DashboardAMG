@@ -3,14 +3,13 @@ import { Link, useNavigate } from "react-router";
 import { EyeCloseIcon, EyeIcon } from "../../icons";
 import Label from "../form/Label";
 import Input from "../form/input/InputField";
-import Checkbox from "../form/input/Checkbox";
 import Button from "../ui/button/Button";
+import { useAuth } from "../../context/AuthContext";
 
 export default function SignInForm() {
   const [showPassword, setShowPassword] = useState(false);
-  const [isChecked, setIsChecked] = useState(false);
   
-  const [email, setEmail] = useState("");
+  const [nik, setNik] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -19,11 +18,12 @@ export default function SignInForm() {
   const [successMessage, setSuccessMessage] = useState("");
   
   const navigate = useNavigate();
+  const { setUser, setToken } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.trim()) {
-      setErrorMessage("Email belum diisi");
+    if (!nik.trim()) {
+      setErrorMessage("NIK belum diisi");
       return;
     }
     if (!password.trim()) {
@@ -41,7 +41,7 @@ export default function SignInForm() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email, password, rememberMe: isChecked }),
+        body: JSON.stringify({ nik, password }),
       });
 
       const data = await response.json();
@@ -50,10 +50,11 @@ export default function SignInForm() {
         throw new Error(data.message || "Gagal melakukan sign in");
       }
 
-      // Simpan token ke localStorage
+      // Simpan token dan user ke context + localStorage
       localStorage.setItem("token", data.token);
-
       localStorage.setItem("user", JSON.stringify(data.user));
+      setToken(data.token);
+      setUser(data.user);
 
       // 1. Tampilkan pesan sukses login
       setSuccessMessage("Login berhasil!");
@@ -86,7 +87,7 @@ export default function SignInForm() {
               Sign In
             </h1>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Masukan email dan password untuk masuk ke dashboard!
+              Masukan NIK dan password untuk masuk ke dashboard!
             </p>
           </div>
 
@@ -109,13 +110,13 @@ export default function SignInForm() {
               <div className="space-y-6">
                 <div>
                   <Label>
-                    Email <span className="text-error-500">*</span>{" "}
+                    NIK (Nomor Induk Karyawan) <span className="text-error-500">*</span>{" "}
                   </Label>
                   <Input 
-                    type="email"
-                    placeholder="info@pt-amg-id.com" 
-                    value={email}
-                    onChange={(e: any) => setEmail(e.target.value)}
+                    type="text"
+                    placeholder="Contoh: 119000000" 
+                    value={nik}
+                    onChange={(e: any) => setNik(e.target.value)}
                     required
                   />
                 </div>
@@ -140,15 +141,6 @@ export default function SignInForm() {
                       ) : (
                         <EyeCloseIcon className="fill-gray-500 dark:fill-gray-400 size-5" />
                       )}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Checkbox checked={isChecked} onChange={setIsChecked} />
-                    <span className="block font-normal text-gray-700 text-theme-sm dark:text-gray-400">
-                      Tetap masuk
                     </span>
                   </div>
                 </div>

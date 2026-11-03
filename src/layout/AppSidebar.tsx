@@ -1,29 +1,88 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
 
 // Assume these icons are imported from an icon library
-import { BoltIcon, ChevronDownIcon, HorizontaLDots } from "../icons";
+import { BoltIcon, ChevronDownIcon, HorizontaLDots, UserIcon, PencilIcon, ListIcon, FolderIcon } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
+import { useAuth } from "../context/AuthContext";
+import type { UserRole } from "../types/auth";
+
+type SubItem = {
+  name: string;
+  path: string;
+  icon?: React.ReactNode;
+  pro?: boolean;
+  new?: boolean;
+  roles?: UserRole[];
+  permissions?: string[];
+};
 
 type NavItem = {
   name: string;
   icon: React.ReactNode;
   path?: string;
-  subItems?: { name: string; path: string; pro?: boolean; new?: boolean }[];
+  roles?: UserRole[];
+  permissions?: string[];
+  subItems?: SubItem[];
+  /** Kept in the config but omitted from the sidebar. */
+  hidden?: boolean;
 };
 
 const navItems: NavItem[] = [
   {
     icon: <BoltIcon />,
     name: "Main Dashboard",
-    subItems: [{ name: "Solar Dashboard", path: "/solar-dashboard", pro: false }],
+    roles: ["admin"],
   },
+  {
+    icon: <UserIcon />,
+    name: "Buku Tamu",
+    roles: ["user", "manager", "admin"],
+    // Temporarily hidden from the sidebar. Routes for /list-guest-book and
+    // /guest-book still exist in App.tsx; re-enable this block to restore them.
+    hidden: true,
+    subItems: [
+      {
+        name: "Daftar Tamu",
+        path: "/list-guest-book",
+        icon: <ListIcon />,
+        roles: ["user", "manager", "admin"],
+      },
+      {
+        name: "Input",
+        path: "/guest-book",
+        icon: <PencilIcon />,
+        roles: ["user", "manager", "admin"],
+      }
+    ],
+  },
+  {
+    icon: <FolderIcon />,
+    name: "Manajemen",
+    roles: ["admin"],
+    subItems: [
+      {
+        name: "Manajemen User",
+        path: "/user-management",
+        icon: <UserIcon />,
+        roles: ["admin", "manager"],
+      },
+      {
+        name: "Manajemen Departemen",
+        path: "/department-management",
+        icon: <FolderIcon />,
+        permissions: ["manage:department"],
+      },
+    ],
+  },
+
 ];
 
 const othersItems: NavItem[] = [];
 
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
+  const { hasAnyRole, hasAnyPermission } = useAuth();
   const location = useLocation();
 
   const [openSubmenu, setOpenSubmenu] = useState<{
@@ -36,10 +95,6 @@ const AppSidebar: React.FC = () => {
   const subMenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   // const isActive = (path: string) => location.pathname === path;
-  const isActive = useCallback(
-    (path: string) => location.pathname === path,
-    [location.pathname]
-  );
 
   useEffect(() => {
     let submenuMatched = false;
@@ -48,7 +103,7 @@ const AppSidebar: React.FC = () => {
       items.forEach((nav, index) => {
         if (nav.subItems) {
           nav.subItems.forEach((subItem) => {
-            if (isActive(subItem.path)) {
+            if (location.pathname === subItem.path) {
               setOpenSubmenu({
                 type: menuType as "main" | "others",
                 index,
@@ -63,7 +118,7 @@ const AppSidebar: React.FC = () => {
     if (!submenuMatched) {
       setOpenSubmenu(null);
     }
-  }, [location, isActive]);
+  }, [location]);
 
   useEffect(() => {
     if (openSubmenu !== null) {
@@ -90,10 +145,45 @@ const AppSidebar: React.FC = () => {
     });
   };
 
-  // render menu item 
-  const renderMenuItems = (items: NavItem[], menuType: "main" | "others") => (
+  // Filter items based on user role / permission
+  const canAccess = (item: { permissions?: string[]; roles?: UserRole[] }): boolean => {
+    if (item.permissions && item.permissions.length > 0) {
+      return hasAnyPermission(item.permissions);
+    }
+    if (item.roles && item.roles.length > 0) {
+      return hasAnyRole(item.roles);
+    }
+    return true;
+  };
+
+  const filterByRole = (items: NavItem[]): NavItem[] => {
+    return items
+      .filter((nav) => !nav.hidden)
+      .filter((nav) => canAccess(nav))
+      .map((nav) => {
+        // Also filter subItems by permission / role
+        if (nav.subItems) {
+          return {
+            ...nav,
+            subItems: nav.subItems.filter((sub) => canAccess(sub)),
+          };
+        }
+        return nav;
+      })
+      .filter((nav) => {
+        // Remove items that have subItems but none are visible
+        if (nav.subItems && nav.subItems.length === 0) return false;
+        return true;
+      });
+  };
+
+  // render menu item
+  const renderMenuItems = (items: NavItem[], menuType: "main" | "others") => {
+    const filteredItems = filterByRole(items);
+
+    return (
     <ul className="flex flex-col gap-4">
-      {items.map((nav, index) => (
+      {filteredItems.map((nav, index) => (
         <li key={nav.name}>
           {nav.subItems ? (
             <button
@@ -135,17 +225,9 @@ const AppSidebar: React.FC = () => {
             nav.path && (
               <Link
                 to={nav.path}
-                className={`menu-item group ${
-                  isActive(nav.path) ? "menu-item-active" : "menu-item-inactive"
-                }`}
+                className="menu-item group menu-item-inactive"
               >
-                <span
-                  className={`menu-item-icon-size ${
-                    isActive(nav.path)
-                      ? "menu-item-icon-active"
-                      : "menu-item-icon-inactive"
-                  }`}
-                >
+                <span className="menu-item-icon-size menu-item-icon-inactive">
                   {nav.icon}
                 </span>
                 {(isExpanded || isHovered || isMobileOpen) && (
@@ -172,33 +254,22 @@ const AppSidebar: React.FC = () => {
                   <li key={subItem.name}>
                     <Link
                       to={subItem.path}
-                      className={`menu-dropdown-item ${
-                        isActive(subItem.path)
-                          ? "menu-dropdown-item-active"
-                          : "menu-dropdown-item-inactive"
-                      }`}
+                      className="menu-dropdown-item menu-dropdown-item-inactive"
                     >
+                      {subItem.icon && (
+                        <span className="mr-2 inline-flex items-center [&>svg]:w-4 [&>svg]:h-4">
+                          {subItem.icon}
+                        </span>
+                      )}
                       {subItem.name}
                       <span className="flex items-center gap-1 ml-auto">
                         {subItem.new && (
-                          <span
-                            className={`ml-auto ${
-                              isActive(subItem.path)
-                                ? "menu-dropdown-badge-active"
-                                : "menu-dropdown-badge-inactive"
-                            } menu-dropdown-badge`}
-                          >
+                          <span className="ml-auto menu-dropdown-badge menu-dropdown-badge-inactive">
                             new
                           </span>
                         )}
                         {subItem.pro && (
-                          <span
-                            className={`ml-auto ${
-                              isActive(subItem.path)
-                                ? "menu-dropdown-badge-active"
-                                : "menu-dropdown-badge-inactive"
-                            } menu-dropdown-badge`}
-                          >
+                          <span className="ml-auto menu-dropdown-badge menu-dropdown-badge-inactive">
                             pro
                           </span>
                         )}
@@ -212,7 +283,8 @@ const AppSidebar: React.FC = () => {
         </li>
       ))}
     </ul>
-  );
+    );
+  };
 
   //return html view aside tag sidebar
   return (
@@ -235,26 +307,29 @@ const AppSidebar: React.FC = () => {
           !isExpanded && !isHovered ? "lg:justify-center" : "justify-start"
         }`}
       >
-        <Link to="/">
+        <Link to="/" className="inline-flex items-center">
           {isExpanded || isHovered || isMobileOpen ? (
             <>
+              {/* The logo artwork is square (1878×1878), so it is rendered at a
+                  1:1 ratio — a wide box would letterbox and distort it. */}
               <img
-                className="dark:hidden"
+                className="h-10 w-10 shrink-0 dark:hidden"
                 src="/images/logo/logo-amg.svg"
                 alt="Logo"
-                width={150}
+                width={40}
                 height={40}
               />
               <img
-                className="hidden dark:block"
+                className="hidden h-10 w-10 shrink-0 dark:block"
                 src="/images/logo/logo-amg.svg"
                 alt="Logo"
-                width={150}
+                width={40}
                 height={40}
               />
             </>
           ) : (
             <img
+              className="h-8 w-8 shrink-0"
               src="/images/logo/logo-amg.svg"
               alt="Logo"
               width={32}

@@ -3,7 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import { useSidebar } from "../context/SidebarContext";
 import { ThemeToggleButton } from "../components/common/ThemeToggleButton";
-import NotificationDropdown from "../components/header/NotificationDropdown";
+// Hidden notification menu — re-enable together with the JSX in the header.
+// import NotificationDropdown from "../components/header/NotificationDropdown";
 import UserDropdown from "../components/header/UserDropdown";
 
 const AppHeader: React.FC = () => {
@@ -155,8 +156,9 @@ const AppHeader: React.FC = () => {
             {/* <!-- Dark Mode Toggler --> */}
             <ThemeToggleButton />
             {/* <!-- Dark Mode Toggler --> */}
+            {/* <!-- Notification menu hidden; uncomment to restore.
             <NotificationDropdown />
-            {/* <!-- Notification Menu Area --> */}
+            --> */}
           </div>
           {/* <!-- User Area --> */}
           <UserDropdown />

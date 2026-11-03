@@ -21,6 +21,10 @@ interface ImportMetaEnv {
   readonly VITE_NODE_RED_API_TOTAL_PLTS_KWH: string;
   /** Node-RED REST path for combined total PLN + PLTS kW history, appended to the base URL. */
   readonly VITE_NODE_RED_API_TOTAL_PLN_PLTS_KWH: string;
+  /** Node-RED REST path for daily PLN / PLTS energy totals (kWh), appended to the base URL. */
+  readonly VITE_NODE_RED_API_TOTAL_KWH_DAY_ALL: string;
+  /** Google AI Studio API key for Gemini OCR. */
+  readonly VITE_GEMINI_API_KEY: string;
 }
 
 interface ImportMeta {

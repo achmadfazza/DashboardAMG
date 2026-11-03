@@ -1,16 +1,50 @@
-import { Navigate, Outlet } from "react-router";
+import { Navigate, Outlet, useLocation } from "react-router";
+import { useAuth } from "../../context/AuthContext";
+import type { UserRole } from "../../types/auth";
 
-export default function ProtectedRoute() {
-   // 1. Cek status login di sini. 
-   // Contoh menggunakan localStorage (Anda bisa menggantinya dengan Context/Redux/Zustand)
-   const isLogin = localStorage.getItem("token");
+interface ProtectedRouteProps {
+  roles?: UserRole[];
+  permissions?: string[];
+  children?: React.ReactNode;
+}
 
-   // 2. Jika tidak ada token (belum login), tendang ke halaman sign in
-   if (!isLogin) {
-      // 'replace' digunakan agar user tidak bisa menekan tombol 'Back' ke halaman dashboard yang diblokir
-      return <Navigate to="/signin" replace />;
-   }
+export default function ProtectedRoute({ roles, permissions, children }: ProtectedRouteProps) {
+  const { isAuthenticated, isLoading, hasAnyRole, hasAnyPermission } = useAuth();
+  const location = useLocation();
 
-   // 3. Jika sudah login, render komponen anak (children/layout) yang ada di dalamnya
-   return <Outlet />;
+  // Show loading state while checking auth
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
+          <span className="text-sm text-gray-500 dark:text-gray-400">
+            Loading...
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  // Not authenticated — redirect to sign in
+  if (!isAuthenticated) {
+    return <Navigate to="/signin" state={{ from: location }} replace />;
+  }
+
+  // Role-based access control
+  if (roles && roles.length > 0) {
+    if (!hasAnyRole(roles)) {
+      // User doesn't have required role — redirect to unauthorized or dashboard
+      return <Navigate to="/unauthorized" replace />;
+    }
+  }
+
+  // Permission-based access control
+  if (permissions && permissions.length > 0 && !hasAnyPermission(permissions)) {
+    // User doesn't have required permission — redirect to unauthorized
+    return <Navigate to="/unauthorized" replace />;
+  }
+
+  // Render children if provided, otherwise render Outlet for nested routes
+  return children ? <>{children}</> : <Outlet />;
 }

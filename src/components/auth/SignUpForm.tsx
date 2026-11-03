@@ -14,6 +14,7 @@ export default function SignUpForm() {
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [nik, setNik] = useState("");
   
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -46,6 +47,7 @@ export default function SignUpForm() {
           lastName,
           email,
           password,
+          nik,
         }),
       });
 
@@ -143,6 +145,21 @@ export default function SignUpForm() {
                     placeholder="Enter your email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <Label>
+                    NIK (Nomor Induk Karyawan)<span className="text-error-500">*</span>
+                  </Label>
+                  <Input
+                    type="text"
+                    id="nik"
+                    name="nik"
+                    placeholder="Contoh: 3201234567890001"
+                    value={nik}
+                    onChange={(e) => setNik(e.target.value)}
                     required
                   />
                 </div>

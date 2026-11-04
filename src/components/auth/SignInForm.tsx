@@ -41,7 +41,9 @@ export default function SignInForm() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ nik, password }),
+        // Backend mencocokkan NIK dengan exact match, jadi spasi/newline
+        // sisa copy-paste harus dibuang sebelum dikirim.
+        body: JSON.stringify({ nik: nik.trim(), password }),
       });
 
       const data = await response.json();

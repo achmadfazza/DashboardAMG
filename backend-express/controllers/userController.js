@@ -86,7 +86,7 @@ exports.createUser = async (req, res) => {
 // ==========================================
 exports.updateUser = async (req, res) => {
    const { id } = req.params;
-   const { firstName, lastName, email, nik, role, department_id } = req.body;
+   const { firstName, lastName, email, nik, role, department_id, password } = req.body;
    try {
       // Cek apakah user ada
       const userExists = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
@@ -94,9 +94,18 @@ exports.updateUser = async (req, res) => {
          return res.status(404).json({ message: 'User tidak ditemukan.' });
       }
 
+      // Password hanya diubah jika diisi. Form edit mengirim string kosong
+      // ketika admin tidak ingin mengganti password, jadi jangan sampai
+      // menimpa hash lama dengan string kosong.
+      const hashedPassword = password ? await bcrypt.hash(password, 10) : null;
+
       const result = await pool.query(
-         'UPDATE users SET first_name = $1, last_name = $2, email = $3, nik = $4, role = $5, department_id = $6 WHERE id = $7 RETURNING id, first_name, last_name, email, nik, role, department_id, created_at',
-         [firstName, lastName, email, nik, role, department_id || null, id]
+         `UPDATE users
+          SET first_name = $1, last_name = $2, email = $3, nik = $4, role = $5,
+              department_id = $6, password = COALESCE($7::varchar, password)
+          WHERE id = $8
+          RETURNING id, first_name, last_name, email, nik, role, department_id, created_at`,
+         [firstName, lastName, email, nik, role, department_id || null, hashedPassword, id]
       );
 
       res.json({ message: 'User berhasil diupdate.', data: result.rows[0] });

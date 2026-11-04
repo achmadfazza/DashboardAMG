@@ -14,9 +14,8 @@ const days = [
 ];
 
 /**
- * Indonesian greeting for the given local hour. Morning covers 00:00–10:59
- * (including the small hours, which have no dedicated greeting), afternoon
- * 11:00–17:59, and evening from 18:00.
+ * Sapaan dalam Bahasa Indonesia sesuai jam lokal. Pagi mencakup 00:00–10:59
+ * (jam dini hari ikut "Pagi"), siang 11:00–17:59, dan malam mulai 18:00.
  */
 const getGreeting = (hour: number): string => {
   if (hour < 11) return "Selamat Pagi";
@@ -47,11 +46,15 @@ export default function Home() {
     minute: "2-digit",
     second: "2-digit",
   });
-  const greeting = getGreeting(now.getHours());
+
+  // Nama dari sesi login (POST /api/auth/signin -> user.firstName/lastName).
+  // Tiap bagian di-trim dulu supaya field seperti "Nicholas " tidak
+  // menghasilkan spasi ganda saat digabung.
   const fullName = [user?.firstName, user?.lastName]
-    .filter((part): part is string => Boolean(part?.trim()))
-    .join(" ")
-    .trim();
+    .map((part) => part?.trim())
+    .filter(Boolean)
+    .join(" ");
+  const greeting = fullName ? `${getGreeting(now.getHours())}, ${fullName}` : "Selamat Datang";
 
   return (
     <>
@@ -61,7 +64,7 @@ export default function Home() {
       />
       <div className="mb-6">
         <h1 className="text-title-sm font-semibold text-gray-900 dark:text-white">
-          {greeting}, {fullName || "User"}
+          {greeting}
         </h1>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
           {day}, {date} — {time}

@@ -1,4 +1,5 @@
 import { memo, useEffect, useRef, useState } from 'react';
+import type { CSSProperties } from 'react';
 import { Sun, Plug, Zap, Wifi, WifiOff } from 'lucide-react';
 import FlowNode from './FlowNode';
 import { useNodeRedWs } from '../../hooks/useNodeRedWs';
@@ -10,6 +11,22 @@ const SOLAR_WS_URL: string = `${import.meta.env.VITE_NODE_RED_WS_BASE_URL ?? ''}
 const FALLBACK_GRID_VALUE = '--.-- kW';
 const FALLBACK_SOLAR_VALUE = '--.-- kW';
 const FALLBACK_LOAD_VALUE = '--.-- kW';
+
+const GRID_FLOW_COLOR = '#38bdf8';
+const SOLAR_FLOW_COLOR = '#fbbf24';
+/** Ignore sensor noise around zero so the flow does not stutter on/off. */
+const FLOW_THRESHOLD_KW = 0.5;
+/** Dash speed bounds: strong flows travel quickly, faint flows drift. */
+const MIN_FLOW_DURATION_S = 0.8;
+const MAX_FLOW_DURATION_S = 2.4;
+/** Readings at or above this reference run at the fastest rate. */
+const FLOW_REFERENCE_KW = 2000;
+
+const flowDurationSeconds = (powerKw: number | null): number => {
+  const magnitude = Math.abs(powerKw ?? 0);
+  const ratio = Math.min(magnitude / FLOW_REFERENCE_KW, 1);
+  return MAX_FLOW_DURATION_S - ratio * (MAX_FLOW_DURATION_S - MIN_FLOW_DURATION_S);
+};
 
 // Node-RED may send a bare number, a numeric string, or an object like
 // { value: 1903.86 }. Extract kW from any of those shapes.
@@ -75,6 +92,51 @@ const NODES: FlowNodeProps[] = [
   },
 ];
 
+interface EnergyFlowLineProps {
+  x1: string;
+  y1: string;
+  x2: string;
+  y2: string;
+  color: string;
+  active: boolean;
+  durationSeconds: number;
+}
+
+/**
+ * Three stacked strokes: a soft channel, a thin idle rail, and the moving dash
+ * layer. The dash layer is never unmounted — it only fades and pauses — so the
+ * flow eases in/out instead of snapping and keeps its dash phase across toggles.
+ */
+const EnergyFlowLine = ({ x1, y1, x2, y2, color, active, durationSeconds }: EnergyFlowLineProps) => {
+  // Shared by both dash layers so the halo and the core stay in phase.
+  const dashStyle: CSSProperties = {
+    transition: 'opacity 600ms ease',
+    animationDuration: `${durationSeconds}s`,
+    animationPlayState: active ? 'running' : 'paused',
+  };
+
+  return (
+    <>
+      <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={color} strokeWidth={10} strokeOpacity={0.1} strokeLinecap="round" />
+      <line x1={x1} y1={y1} x2={x2} y2={y2} stroke={color} strokeWidth={2} strokeOpacity={0.28} strokeLinecap="round" />
+      {/* Wide translucent dashes fake a glow; an SVG filter would not render on
+          a zero-height (horizontal) or zero-width (vertical) line. */}
+      <line
+        x1={x1} y1={y1} x2={x2} y2={y2}
+        stroke={color} strokeWidth={9} strokeLinecap="round" strokeDasharray="14 14"
+        className="animate-dash"
+        style={{ ...dashStyle, opacity: active ? 0.22 : 0 }}
+      />
+      <line
+        x1={x1} y1={y1} x2={x2} y2={y2}
+        stroke={color} strokeWidth={4} strokeLinecap="round" strokeDasharray="14 14"
+        className="animate-dash"
+        style={{ ...dashStyle, opacity: active ? 0.95 : 0 }}
+      />
+    </>
+  );
+};
+
 // Panel is memoized against parent re-renders, but still re-renders on its
 // own hook state (live Grid and Solar values) — which is exactly what we want.
 const PowerFlowPanel = memo(function PowerFlowPanel() {
@@ -86,6 +148,13 @@ const PowerFlowPanel = memo(function PowerFlowPanel() {
   const gridValue = gridKw !== null ? `${gridKw.toFixed(2)} kW` : FALLBACK_GRID_VALUE;
   const solarValue = solarKw !== null ? `${solarKw.toFixed(2)} kW` : FALLBACK_SOLAR_VALUE;
   const loadValue = loadKw !== null ? `${loadKw.toFixed(2)} kW` : FALLBACK_LOAD_VALUE;
+
+  // A line only flows while its source is actually delivering power.
+  const gridActive = gridKw !== null && Math.abs(gridKw) > FLOW_THRESHOLD_KW;
+  const solarActive = solarKw !== null && solarKw > FLOW_THRESHOLD_KW;
+  const gridFlowSeconds = flowDurationSeconds(gridKw);
+  const solarFlowSeconds = flowDurationSeconds(solarKw);
+  const junctionColor = solarActive ? SOLAR_FLOW_COLOR : GRID_FLOW_COLOR;
 
   // Blip the Grid badge every time a new reading arrives: toggling the
   // class retriggers the CSS animation (cleared after it finishes).
@@ -159,21 +228,37 @@ const PowerFlowPanel = memo(function PowerFlowPanel() {
             </feMerge>
           </filter>
         </defs>
-        {/* Flow Grid -> Load: dashes animate from the line start (x1) toward its end (x2) */}
-        <line
+        {/* Flow Grid -> Load: dashes travel from the line start (Grid) to its end (Load). */}
+        <EnergyFlowLine
           x1="75%" y1="70%" x2="25%" y2="70%"
-          stroke="#38bdf8" strokeWidth="6"
-          strokeDasharray="12 12" className="opacity-70 animate-dash"
+          color={GRID_FLOW_COLOR}
+          active={gridActive}
+          durationSeconds={gridFlowSeconds}
         />
-        {/* Only animate Solar -> junction when Solar is producing power. */}
-        <line
+        {/* Flow Solar -> junction: only moves while the panels produce power. */}
+        <EnergyFlowLine
           x1="50%" y1="30%" x2="50%" y2="70%"
-          stroke="#38bdf8" strokeWidth="6"
-          strokeDasharray="12 17"
-          className={solarKw !== null && solarKw > 0 ? 'opacity-70 animate-dash' : 'opacity-30'}
+          color={SOLAR_FLOW_COLOR}
+          active={solarActive}
+          durationSeconds={solarFlowSeconds}
         />
-        {/* Central Junction Dot */}
-        <circle cx="50%" cy="70%" r="8" fill="#38bdf8" filter="url(#glow)" />
+        {/* Central Junction Dot, with a halo that pulses while energy flows. */}
+        <circle
+          cx="50%" cy="70%" r="8"
+          fill={junctionColor}
+          filter="url(#glow)"
+          style={{ transition: 'fill 600ms ease' }}
+        />
+        {gridActive || solarActive ? (
+          <circle
+            cx="50%" cy="70%" r="8"
+            fill="none"
+            stroke={junctionColor}
+            strokeWidth={2}
+            className="animate-flow-pulse"
+            style={{ transformBox: 'fill-box', transformOrigin: 'center', transition: 'stroke 600ms ease' }}
+          />
+        ) : null}
       </svg>
 
       {/* Nodes (Grid, Solar, and Load values are live from Node-RED) */}
